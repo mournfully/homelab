@@ -1,0 +1,4 @@
+---
+- name: Main ansible playbook
+  hosts: servers
+  gather_facts: true
