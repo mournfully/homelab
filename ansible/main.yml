@@ -1,4 +1,37 @@
 ---
 - name: Main ansible playbook
-  hosts: servers
+  hosts: all # use `--limit pve` instead
   gather_facts: true
+
+# - name: Install pve-docker packages
+#   import_playbook: playbooks/dev-0-install-packages.yml
+
+# - name: Harden pve-docker ssh
+#   import_playbook: playbooks/dev-1-harden-ssh.yml
+
+# - name: Create pve-docker user
+#   import_playbook: playbooks/dev-1-harden-user.yml
+
+# - name: Install docker
+#   import_playbook: playbooks/dev-2-install-docker.yml
+
+- name: Install pve-hypervisor packages
+  import_playbook: playbooks/pve-0-install-packages.yml
+
+- name: Harden ssh to pve-hypervisor
+  import_playbook: playbooks/pve-1-harden-ssh.yml
+
+- name: Create a pve-hypervisor user
+  import_playbook: playbooks/pve-1-harden-user.yml
+
+- name: Configure pve-hypervisor system
+  import_playbook: playbooks/pve-2-configure-host.yml
+
+- name: Install chezmoi
+  import_playbook: playbooks/pve-3-install-chezmoi.yml
+
+- name: Update pve-hypervisor sources
+  import_playbook: playbooks/pve-4-proxmox-repos.yml
+
+- name: Configure pve-hypervisor webgui
+  import_playbook: playbooks/pve-4-proxmox-webgui.yml

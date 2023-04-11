@@ -9,7 +9,7 @@ A few commands to keep in mind are as follows.
 - If you're targetting `pve` use `ssh pve` first and authenticate via 2fa, so that ansible can reuse that connection via ssh multiplexing.
 - `ansible homeprod -m ping`
 - `ansible homeprod -m shell -a 'hostname'`
-- `ansible-playbook main.yml`
+- `ansible-playbook main.yml --limit pve`
 
 Setup a [pre-commit hook](../scripts/add-vault-hook.sh) to ensure that ansible-vault (`ansible/inventory/group_vars/homeprod.yml`) can't ever be commited unless it's encrypted. [^1]
 
