@@ -36,9 +36,12 @@
       changed_when: false
       check_mode: false
 
-    - name: Parse for locale/language
+    - name: Parse for locale
       ansible.builtin.set_fact:
         locale_lang: "{{ locale_status.stdout | regex_search('LANG=([^\n]+)', '\\1') | first }}"
+
+    - name: Parse for language
+      ansible.builtin.set_fact:
         locale_language: "{{ locale_status.stdout | regex_search('LANGUAGE=([^\n]+)', '\\1') | default([locale_lang], true) | first }}"
 
     - name: Set locale/language
