@@ -1,0 +1,32 @@
+---
+- name: Install chrony
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Install chrony package
+      ansible.builtin.apt:
+        package:
+          - chrony    # network time protocol
+        update_cache: false
+        autoremove: false
+        install_recommends: false
+      no_log: "{{ truancated_logs }}"
+
+    - name: Disable chrony's ipv6 socket
+      ansible.builtin.lineinfile:
+        dest: /etc/default/chrony
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+        backup: true
+      loop:
+        - regexp: DAEMON_OPTS="-F 1"
+          line: DAEMON_OPTS="-4 -F 1"
+
+    - name: Start chrony
+      ansible.builtin.service:
+        name: chronyd
+        state: started
+        enabled: true
+      no_log: "{{ truancated_logs }}"

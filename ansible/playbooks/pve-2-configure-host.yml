@@ -22,13 +22,6 @@
       community.general.timezone:
         name: "{{ set_timezone }}"
 
-    - name: Start NTP
-      ansible.builtin.service:
-        name: chronyd
-        state: started
-        enabled: true
-      no_log: "{{ truancated_logs }}"
-
     - name: Check locale/language availability
       community.general.locale_gen:
         name: "{{ item }}"

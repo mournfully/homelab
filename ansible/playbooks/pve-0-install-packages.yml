@@ -1,6 +1,7 @@
 ---
 - name: Install pve-hypervisor packages
   hosts: all
+
   tasks:
     - name: Update/Upgrade packages
       ansible.builtin.apt:
@@ -18,7 +19,6 @@
           - sudo                          # limited root privileges
           - htop                          # interactive process viewer
           - tree                          # recursive directory listing
-          - chrony                        # network time protocol
           - ethtool                       # change ethernet interface settings
           - net-tools                     # network management
           - fdisk                         # storage management

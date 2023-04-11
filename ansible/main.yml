@@ -27,6 +27,9 @@
 - name: Configure pve-hypervisor system
   import_playbook: playbooks/pve-2-configure-host.yml
 
+- name: Install chrony
+  import_playbook: playbooks/pve-2-install-chrony.yml
+
 - name: Install chezmoi
   import_playbook: playbooks/pve-3-install-chezmoi.yml
 
