@@ -1,0 +1,55 @@
+---
+- name: Create pve-docker user
+  hosts: all
+  vars:
+    sudo_group: wheel
+
+  tasks:
+    - name: Create groups
+      ansible.builtin.group:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - users
+        - "{{ set_username }}"
+        - "{{ sudo_group }}"
+        - sudo
+        - sshauth
+
+    - name: Permit passwordless sudo
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers
+        state: present
+        regexp: '^%{{ sudo_group }}'
+        line: '%{{ sudo_group }} ALL=(ALL) NOPASSWD: ALL'
+        validate: '/usr/sbin/visudo -cf %s'
+
+    - name: Create a user
+      ansible.builtin.user:
+        name: "{{ set_username }}"
+        password: "{{ set_password | password_hash('sha512') }}"
+        update_password: on_create
+        state: present
+        groups:
+          - users
+          - "{{ set_username }}"
+          - "{{ sudo_group }}"
+          - sudo
+          - sshauth
+        append: true
+        create_home: true
+        shell: /usr/bin/bash
+
+    - name: Set $HOME permissions
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+        owner: "{{ set_username }}"
+        group: "{{ set_username }}"
+        recurse: false
+        modification_time: preserve
+        access_time: preserve
+      loop:
+        - "/home/{{ set_username }}"
+        - "/home/{{ set_username }}/.ansible/tmp/"

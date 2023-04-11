@@ -1,0 +1,87 @@
+---
+- name: Harden pve-docker ssh
+  hosts: all
+
+  tasks:
+    - name: Setup $USER ssh
+      ansible.posix.authorized_key:
+        user: "{{ set_username }}"
+        state: present
+        key: "{{ public_ssh_key }}"
+
+    - name: SSHD (options) 1/2
+      ansible.builtin.lineinfile:
+        dest: /etc/ssh/sshd_config
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+        validate: 'sshd -t -f %s'
+        backup: true
+      loop:
+        - regexp: "#PasswordAuthentication yes"
+          line: "PasswordAuthentication no"
+        - regexp: "#PermitRootLogin"
+          line: "PermitRootLogin no"
+        - regexp: "#Port 22"
+          line: "Port 3022"
+        - regexp: "#AddressFamily any"
+          line: "AddressFamily inet"
+        - regexp: "#LoginGraceTime 2m"
+          line: "LoginGraceTime 45s"
+        - regexp: "#MaxAuthTries 6"
+          line: "MaxAuthTries 3"
+        - regexp: "^X11Forwarding yes"
+          line: "X11Forwarding no"
+      notify: Restart sshd
+
+    - name: SSHD (append) 2/2
+      ansible.builtin.blockinfile:
+        state: present
+        insertafter: EOF
+        dest: /etc/ssh/sshd_config
+        content: |
+          # only 'sshauth' group can connect thru ssh w/ valid ssh key
+          Match Group sshauth
+            AuthenticationMethods publickey
+          # no other groups are allowed to connect thru ssh
+          Match Group *,!sshauth
+            AuthenticationMethods none
+      notify: Restart sshd
+
+    - name: Create fail2ban config files
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: "{{ 'directory' if item.mode == '0755' else 'touch' }}"
+        mode: "{{ item.mode }}"
+        owner: "{{ set_username }}"
+        group: "{{ set_username }}"
+        recurse: false
+        modification_time: preserve
+        access_time: preserve
+      loop:
+        - { mode: '0664', path: /etc/fail2ban/jail.d/01_sshd.conf }
+
+    - name: Setup fail2ban sshd jail
+      ansible.builtin.blockinfile:
+        state: present
+        insertafter: EOF
+        dest: /etc/fail2ban/jail.d/01_sshd.conf
+        content: |
+          [sshd]
+          enabled = true
+          port = 3022
+          maxretry = 3
+      notify: Restart fail2ban
+
+  handlers:
+    - name: Restart sshd
+      ansible.builtin.service:
+        name: sshd
+        state: restarted
+      no_log: "{{ truancated_logs }}"
+
+    - name: Restart fail2ban
+      ansible.builtin.service:
+        name: fail2ban
+        state: restarted
+      no_log: "{{ truancated_logs }}"

@@ -1,0 +1,40 @@
+# https://github.com/ChristianLempa/boilerplates/blob/9ad91f80729aea8eb666e521dfd5f277d7f69c57/ansible/provisoning/ubuntu/install-docker.yaml
+---
+- name: Install docker
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Install prerequisite packages
+      ansible.builtin.apt:
+        package:
+          - docker.io
+          - python3-pip
+        update_cache: false
+        autoremove: false
+        install_recommends: false
+      no_log: "{{ truancated_logs }}"
+
+    - name: Create docker group
+      ansible.builtin.group:
+        name: docker
+        state: present
+
+    - name: Run all pending handlers
+      ansible.builtin.meta: "flush_handlers"
+
+    - name: Reset ssh connection for changes to take effect
+      ansible.builtin.meta: "reset_connection"
+
+    - name: Add existing user to docker group
+      ansible.builtin.user:
+        name: '{{ set_username }}'
+        groups: docker
+        append: true
+
+    - name: Install docker python sdk for ansible
+      become_user: "{{ set_username }}"
+      ansible.builtin.pip:
+        name:
+          - docker
+          - docker-compose

@@ -1,0 +1,64 @@
+---
+- name: Configure pve-hypervisor webgui
+  hosts: all
+  # vars:
+    # proxmox_dark_mode_upstream: https://raw.githubusercontent.com/Weilbyte/PVEDiscordDark/master/PVEDiscordDark.sh
+    # proxmox_dark_mode_destination: /opt/PveDiscordDark.sh
+    # proxmox_dark_mode_permissions: u=rwx,g=rwx,o=r
+
+  tasks:
+    # - name: Download webgui theme installer
+    #   ansible.builtin.get_url:
+    #     url: "{{ proxmox_dark_mode_upstream }}"
+    #     dest: "{{ proxmox_dark_mode_destination }}"
+    #     mode: "{{ proxmox_dark_mode_permissions }}"
+    #     owner: "{{ set_username }}"
+    #     group: "{{ set_username }}"
+
+    # - name: Check dark mode status
+    #   ansible.builtin.command: "{{ proxmox_dark_mode_destination }} status"
+    #   register: __theme_status
+    #   failed_when: false
+    #   changed_when: false
+
+    # - name: Set proxmox webgui to dark mode
+    #   ansible.builtin.command: "{{ proxmox_dark_mode_destination }} install"
+    #   when: __theme_status.rc == 1
+    #   changed_when: "'Theme installed' in __theme_status.stdout"
+
+    - name: Remove "No valid subscription" popup
+      ansible.builtin.replace:
+        path: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
+        regexp: 'res[\s\n]*\.data\.status\.toLowerCase\(\) !== .active.'
+        replace: "false"
+        backup: true
+      notify: Restart pveproxy
+
+    - name: Create pve config file
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: "{{ 'directory' if item.mode == '0755' else 'touch' }}"
+        mode: "{{ item.mode }}"
+        owner: "{{ set_username }}"
+        group: "{{ set_username }}"
+        recurse: false
+        modification_time: preserve
+        access_time: preserve
+      loop:
+        - { mode: '0664', path: /etc/default/pveproxy }
+
+    - name: Use stronger encryption for web gui
+      ansible.builtin.blockinfile:
+        state: present
+        insertafter: EOF
+        dest: /etc/default/pveproxy
+        content: |
+          CIPHERS="ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256"
+          HONOR_CIPHER_ORDER="1"
+      notify: Restart pveproxy
+
+  handlers:
+    - name: Restart pveproxy
+      ansible.builtin.service:
+        name: pveproxy
+        state: restarted

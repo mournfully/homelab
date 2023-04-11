@@ -1,0 +1,54 @@
+---
+- name: Configure pve-hypervisor system
+  hosts: all
+  vars:
+    set_timezone: Canada/Eastern
+    set_locale: en_US.UTF-8
+    set_language: en_US.UTF-8
+
+  tasks:
+    - name: Set hostname
+      ansible.builtin.hostname:
+        name: "{{ set_hostname }}"
+
+    - name: Validate /etc/hosts
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: "^{{ ansible_default_ipv4.address }}"
+        line: "{{ ansible_default_ipv4.address }} {{ set_hostname }} {{ ansible_hostname }}"
+        state: present
+
+    - name: Set timezone
+      community.general.timezone:
+        name: "{{ set_timezone }}"
+
+    - name: Start NTP
+      ansible.builtin.service:
+        name: chronyd
+        state: started
+        enabled: true
+      no_log: "{{ truancated_logs }}"
+
+    - name: Check locale/language availability
+      community.general.locale_gen:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - "{{ set_locale }}"
+        - "{{ set_language }}"
+
+    - name: Get locale/language configs
+      ansible.builtin.command: localectl status
+      register: locale_status
+      changed_when: false
+      check_mode: false
+
+    - name: Parse for locale/language
+      ansible.builtin.set_fact:
+        locale_lang: "{{ locale_status.stdout | regex_search('LANG=([^\n]+)', '\\1') | first }}"
+        locale_language: "{{ locale_status.stdout | regex_search('LANGUAGE=([^\n]+)', '\\1') | default([locale_lang], true) | first }}"
+
+    - name: Set locale/language
+      ansible.builtin.command: localectl set-locale LANG={{ set_locale }} LANGUAGE={{ set_language }}
+      when: locale_lang != set_locale or locale_language != set_language
+      changed_when: locale_lang != set_locale or locale_language != set_language

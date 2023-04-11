@@ -1,0 +1,48 @@
+---
+- name: Install pve-hypervisor packages
+  hosts: all
+  tasks:
+    - name: Update/Upgrade packages
+      ansible.builtin.apt:
+        cache_valid_time: 3600
+        update_cache: true
+        upgrade: true
+        autoremove: true
+      no_log: "{{ truancated_logs }}"
+
+    - name: Install packages
+      ansible.builtin.apt:
+        package:
+          - vim                           # editor
+          - git                           # version control
+          - sudo                          # limited root privileges
+          - htop                          # interactive process viewer
+          - tree                          # recursive directory listing
+          - chrony                        # network time protocol
+          - ethtool                       # change ethernet interface settings
+          - net-tools                     # network management
+          - fdisk                         # storage management
+          - libpam-google-authenticator   # 2fa totp
+          - lm-sensors                    # monitor sensor values
+          - fail2ban                      # intrusion prevention
+          - intel-microcode               # mitigate cpu vulnerabilities
+        update_cache: false
+        autoremove: false
+        install_recommends: false
+      no_log: "{{ truancated_logs }}"
+
+    - name: Check if reboot-required
+      ansible.builtin.stat:
+        path: /var/run/reboot-required*
+      register: reboot_required_file
+
+    - name: Reboot as required
+      ansible.builtin.debug:
+        msg: reboot requested
+      notify: Reboot system
+      when: reboot_required_file.stat.exists
+
+  handlers:
+    - name: Reboot system
+      ansible.builtin.reboot:
+        msg: Reboot initiated by ansible

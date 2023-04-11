@@ -1,0 +1,121 @@
+---
+- name: Install chezmoi
+  hosts: all
+  vars:
+    chezmoi_remote_repo: "https://github.com/mournfully/dotfiles-v2/"
+    chezmoi_remote_repo_branch: "server"
+    chezmoi_init_args: "--branch {{ chezmoi_remote_repo_branch }} --depth 2 --apply --force"
+    chezmoi_debian_architectures:
+      x86_64: amd64
+      arm: arm
+      arm64: arm64
+      aarch64: arm64
+
+  tasks:
+    - name: Check for chezmoi
+      ansible.builtin.command: chezmoi --version
+      register: chezmoi_version_output
+      ignore_errors: true
+      changed_when: false
+
+    - name: Update chezmoi if possible
+      ansible.builtin.command: chezmoi upgrade
+      register: chezmoi_upgrade_output
+      when: "'chezmoi version' in chezmoi_version_output.stdout"
+      changed_when: "'already at the latest version' not in chezmoi_upgrade_output.stdout"
+
+    - name: Install chezmoi if not already installed
+      when: "'chezmoi version' not in chezmoi_version_output.stdout"
+      block:
+        - name: Parse upstream chezmoi repo
+          ansible.builtin.uri:
+            url: https://api.github.com/repos/twpayne/chezmoi/releases/latest
+            return_content: true
+          register: chezmoi_release_output
+          check_mode: false
+          no_log: "{{ truancated_logs }}"
+
+        - name: Store chezmoi version
+          ansible.builtin.set_fact:
+            chezmoi_version: "{{ chezmoi_release_output.json.tag_name }}"
+
+        - name: Store chezmoi variables
+          ansible.builtin.set_fact:
+            chezmoi_install: "{{ chezmoi_version_output.rc == 2 or not (chezmoi_version in chezmoi_version_output.stdout) }}"
+            chezmoi_version_filtered: "{{ chezmoi_version | regex_replace('^v', '') }}"
+
+        - name: Install chezmoi if on debian
+          ansible.builtin.apt:
+            deb:
+              "https://github.com/twpayne/chezmoi/releases/download/\
+              {{ chezmoi_version }}/chezmoi_{{ chezmoi_version_filtered }}\
+              _linux_{{ chezmoi_debian_architectures[ansible_architecture] }}.deb"
+          when: chezmoi_install and ansible_facts['os_family'] == 'Debian'
+
+    - name: Check for ~/.local/share/chezmoi
+      become: true
+      become_method: su
+      become_user: "{{ set_username }}"
+      ansible.builtin.stat:
+        path: "~/.local/share/chezmoi"
+      register: local_repo_exists
+      ignore_errors: true
+      changed_when: false
+
+    - name: Update dotfiles if ~/.local/share/chezmoi exists
+      when: local_repo_exists is defined and local_repo_exists.stat.exists
+      block:
+        - name: Check for deviations
+          become: true
+          become_method: su
+          become_user: "{{ set_username }}"
+          ansible.builtin.command: "chezmoi verify"
+          register: local_dotfiles_status
+          ignore_errors: true
+          changed_when: false
+
+        - name: Correct deviations if possible
+          become: true
+          become_method: su
+          become_user: "{{ set_username }}"
+          ansible.builtin.command: "chezmoi apply --force"
+          when: local_dotfiles_status is defined and local_dotfiles_status.rc != 0
+          changed_when: local_dotfiles_status is defined and local_dotfiles_status.rc != 0
+
+        - name: Get commit hash of remote dotfiles repo
+          ansible.builtin.git:
+            repo: "{{ chezmoi_remote_repo }}"
+            version: "{{ chezmoi_remote_repo_branch }}"
+            clone: false
+            update: false
+          register: remote_repo_commit_hash
+          check_mode: true
+          changed_when: false
+
+        - name: Get commit hash of local dotfiles repo
+          ansible.builtin.git:
+            repo: "{{ chezmoi_remote_repo }}"
+            version: "{{ chezmoi_remote_repo_branch }}"
+            remote: "origin/{{ chezmoi_remote_repo_branch }}"
+            dest: "/home/{{ set_username }}/.local/share/chezmoi"
+            clone: false
+            update: false
+          register: local_repo_commit_hash
+          check_mode: true
+          ignore_errors: true
+
+        - name: Update dotfiles if commit hashes diverge
+          become: true
+          become_method: su
+          become_user: "{{ set_username }}"
+          ansible.builtin.command: "chezmoi update --force"
+          when: local_repo_commit_hash.after != remote_repo_commit_hash.after
+          changed_when: local_repo_commit_hash.after != remote_repo_commit_hash.after
+
+    - name: Apply dotfiles
+      become: true
+      become_method: su
+      become_user: "{{ set_username }}"
+      ansible.builtin.command: "chezmoi init {{ chezmoi_remote_repo }} {{ chezmoi_init_args }}"
+      when: local_repo_exists is defined and not local_repo_exists.stat.exists
+      changed_when: local_repo_exists is defined and not local_repo_exists.stat.exists
