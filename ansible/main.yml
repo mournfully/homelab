@@ -30,6 +30,9 @@
 - name: Install chrony
   import_playbook: playbooks/pve-2-install-chrony.yml
 
+- name: Update pve-hypervisor sources
+  import_playbook: playbooks/pve-2-update-repos.yml
+
 - name: Install chezmoi
   import_playbook: playbooks/pve-3-install-chezmoi.yml
 

@@ -21,6 +21,22 @@
         - ansible_facts['distribution'] == "Debian"
         - ansible_facts['distribution_major_version'] == "11"
 
+    - name: Add non-free debian repos
+      ansible.builtin.apt_repository:
+        repo: "{{ item }}"
+        state: present
+        filename: debian-11-nonfree
+      when:
+        - ansible_facts['distribution'] == "Debian"
+        - ansible_facts['distribution_major_version'] == "11"
+      loop:
+        - deb http://deb.debian.org/debian bullseye non-free
+        - deb-src http://deb.debian.org/debian bullseye non-free
+        - deb http://deb.debian.org/debian-security/ bullseye-security non-free
+        - deb-src http://deb.debian.org/debian-security/ bullseye-security non-free
+        - deb http://deb.debian.org/debian bullseye-updates non-free
+        - deb-src http://deb.debian.org/debian bullseye-updates non-free
+
     - name: Update packages
       ansible.builtin.apt:
         update_cache: true
