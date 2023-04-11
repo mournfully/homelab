@@ -2,7 +2,7 @@
 - name: Install chezmoi
   hosts: all
   vars:
-    chezmoi_remote_repo: "https://github.com/mournfully/dotfiles-v2/"
+    chezmoi_remote_repo: "https://github.com/mournfully/dotfiles/"
     chezmoi_remote_repo_branch: "server"
     chezmoi_init_args: "--branch {{ chezmoi_remote_repo_branch }} --depth 2 --apply --force"
     chezmoi_debian_architectures:
