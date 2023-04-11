@@ -36,8 +36,8 @@
 - name: Install chezmoi
   import_playbook: playbooks/pve-3-install-chezmoi.yml
 
-- name: Update pve-hypervisor sources
-  import_playbook: playbooks/pve-4-proxmox-repos.yml
+- name: Add proxmox optimizations
+  import_playbook: playbooks/pve-4-optimize-proxmox.yml
 
 - name: Configure pve-hypervisor webgui
   import_playbook: playbooks/pve-4-proxmox-webgui.yml

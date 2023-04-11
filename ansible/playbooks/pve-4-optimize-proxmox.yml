@@ -1,0 +1,83 @@
+---
+- name: Add proxmox optimizations
+  hosts: all
+
+  tasks:
+    - name: Transfer sysctl config files
+      ansible.builtin.copy:
+        src: "./templates/{{ item }}"
+        dest: "/etc/sysctl.d/{{ item }}"
+        mode: '0664'
+        owner: root
+        group: root
+      loop:
+        - 80_tcp_hardening.conf
+        - 85_kernel_optimizations.conf
+        - 85_memory_optimizations.conf
+        - 85_network_optimizations.conf
+      register: copy_result
+      notify: Reboot system
+
+    - name: Load sysctl settings from files
+      ansible.builtin.command: "sysctl -p /etc/sysctl.d/{{ item }}"
+      loop:
+        - 80_tcp_hardening.conf
+        - 85_kernel_optimizations.conf
+        - 85_memory_optimizations.conf
+        - 85_network_optimizations.conf
+      when: copy_result.changed
+      register: cmd_result
+      changed_when: cmd_result.rc == 0
+
+    - name: Disable transparent hugepages
+      ansible.builtin.lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX="((:?(?!transparent_hugepage=never).)*?)"$'
+        line: 'GRUB_CMDLINE_LINUX="\1transparent_hugepage=never"'
+        backup: true
+        backrefs: true
+      register: lineinfile_result
+      notify: Reboot system
+
+    - name: Run update-grub command
+      ansible.builtin.command: "update-grub"
+      when: lineinfile_result.changed
+      register: grub_result
+      changed_when: grub_result.changed
+
+    - name: Configure nfs-common
+      ansible.builtin.lineinfile:
+        dest: /etc/default/nfs-common
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+        backup: true
+      loop:
+        - regexp: "NEED_STATD="
+          line: "NEED_STATD=no"
+        - regexp: "STATDOPTS="
+          line: "STATDOPTS="
+        - regexp: "NEED_IDMAPD="
+          line: "NEED_IDMAPD=no"
+        - regexp: "NEED_GSSD="
+          line: "NEED_GSSD=no"
+
+    - name: Disable unnecessary services
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      no_log: "{{ truancated_logs }}"
+      loop:
+        - rpcbind.target
+        - rpcbind.socket
+        - rpcbind.service
+        - nfs-client.target
+        - pve-ha-crm
+        - pve-ha-lrm
+        - corosync
+
+  handlers:
+    - name: Reboot system
+      ansible.builtin.reboot:
+        msg: Reboot initiated by ansible
