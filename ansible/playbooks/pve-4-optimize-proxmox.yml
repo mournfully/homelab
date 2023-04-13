@@ -10,6 +10,7 @@
         mode: '0664'
         owner: root
         group: root
+        backup: true
       loop:
         - 80_tcp_hardening.conf
         - 85_kernel_optimizations.conf

@@ -9,7 +9,7 @@
         state: present
         key: "{{ public_ssh_key }}"
 
-    - name: SSHD pam.d (options) 1/2
+    - name: Ignore authentication settings common to all services (/etc/pam.d/common-auth)
       ansible.builtin.lineinfile:
         dest: /etc/pam.d/sshd
         regexp: "{{ item.regexp }}"
@@ -21,13 +21,13 @@
         - regexp: "^include common-auth"
           line: "# @include common-auth"
 
-    - name: SSHD pam.d (append) 2/2
+    - name: Enforce tfa with google authenticator tokens if undefined
       ansible.builtin.blockinfile:
         state: present
         insertafter: EOF
         dest: /etc/pam.d/sshd
         content: |
-          # Enforcing TFA with Google Authenticator tokens
+          # Enforce tfa with google authenticator tokens if undefined
           auth required pam_google_authenticator.so
 
     - name: SSHD (options) 1/2
@@ -57,7 +57,7 @@
           line: "X11Forwarding no"
       notify: Restart sshd
 
-    - name: SSHD (append) 2/2
+    - name: Add allowed authentication methods based on groups
       ansible.builtin.blockinfile:
         state: present
         insertafter: EOF
@@ -113,7 +113,6 @@
           filter = proxmox
           logpath = /var/log/daemon.log
           maxretry = 3
-          # 10 minutes
           bantime = 600
       notify: Restart fail2ban
 
